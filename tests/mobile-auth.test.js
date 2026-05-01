@@ -24,12 +24,10 @@ const mobileUser = {
 describe('Mobile auth API', () => {
   beforeEach(() => {
     queryMock.mockReset();
+    delete process.env.MOBILE_AUTH_AUTO_CONFIRM;
   });
 
-  it('POST /api/mobile/auth/request-call creates a pending verification request', async () => {
-    queryMock.mockResolvedValueOnce({ rows: [] });
-    queryMock.mockResolvedValueOnce({ rows: [mobileUser] });
-
+  it('POST /api/mobile/auth/request-call creates a pending verification request without registering', async () => {
     const res = await request(app)
       .post('/api/mobile/auth/request-call')
       .send({ phone: '+7 (999) 123-45-67' });
@@ -41,39 +39,41 @@ describe('Mobile auth API', () => {
       expiresAt: expect.any(String),
       callNumberE164: '+74995503212',
       status: 'pending',
-      devCode: '0000'
+      devCode: null
     });
-    expect(queryMock).toHaveBeenNthCalledWith(1, expect.stringContaining('WHERE phone_e164 = $1'), [
-      '+79991234567'
-    ]);
-    expect(queryMock).toHaveBeenNthCalledWith(2, expect.stringContaining('INSERT INTO users'), [
-      'User +79991234567',
-      '79991234567@mobile.rusyugtrans.local',
-      '+79991234567',
-      expect.any(String)
-    ]);
+    expect(queryMock).not.toHaveBeenCalled();
   });
 
-  it('GET /api/mobile/auth/call-status returns confirmed status and auth token', async () => {
-    queryMock.mockResolvedValueOnce({ rows: [mobileUser] });
-
+  it('GET /api/mobile/auth/call-status stays pending by default', async () => {
     const res = await request(app).get('/api/mobile/auth/call-status?phone=%2B79991234567');
 
     expect(res.status).toBe(200);
     expect(res.body).toEqual({
       phoneE164: '+79991234567',
-      verified: true,
-      status: 'confirmed',
+      verified: false,
+      status: 'pending',
       expiresAt: expect.any(String),
-      authToken: expect.any(String),
-      detectedCallerE164: '+79991234567',
+      authToken: null,
+      detectedCallerE164: null,
       detectedIpPhoneLogId: null
     });
+    expect(queryMock).not.toHaveBeenCalled();
   });
 
-  it('mobile auth token works with /api/mobile/auth/me via X-Auth-Token', async () => {
-    queryMock.mockResolvedValueOnce({ rows: [] });
+  it('GET /api/mobile/auth/call-status can auto-confirm when explicitly enabled', async () => {
+    process.env.MOBILE_AUTH_AUTO_CONFIRM = 'true';
     queryMock.mockResolvedValueOnce({ rows: [mobileUser] });
+
+    const res = await request(app).get('/api/mobile/auth/call-status?phone=%2B79991234567');
+
+    expect(res.status).toBe(200);
+    expect(res.body.verified).toBe(true);
+    expect(res.body.status).toBe('confirmed');
+    expect(res.body.authToken).toEqual(expect.any(String));
+  });
+
+  it('auto-confirmed mobile auth token works with /api/mobile/auth/me via X-Auth-Token', async () => {
+    process.env.MOBILE_AUTH_AUTO_CONFIRM = 'true';
     queryMock.mockResolvedValueOnce({ rows: [mobileUser] });
     queryMock.mockResolvedValueOnce({ rows: [mobileUser] });
 

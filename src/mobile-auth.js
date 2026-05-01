@@ -47,6 +47,9 @@ const createRequestToken = (phoneE164) =>
 const getRequestExpiry = () =>
   new Date(Date.now() + requestTokenExpiresInSeconds * 1000).toISOString();
 
+const isAutoConfirmEnabled = () =>
+  ['true', '1', 'yes'].includes((process.env.MOBILE_AUTH_AUTO_CONFIRM || '').toLowerCase());
+
 const getOrCreateMobileUser = async (phoneE164) => {
   const existing = await query(
     `SELECT ${mobileUserFields}
@@ -84,6 +87,16 @@ const getVerifiedResponse = async (phoneE164, expiresAt) => {
   };
 };
 
+const getPendingResponse = (phoneE164, expiresAt) => ({
+  phoneE164,
+  verified: false,
+  status: 'pending',
+  expiresAt,
+  authToken: null,
+  detectedCallerE164: null,
+  detectedIpPhoneLogId: null
+});
+
 export const requestCallVerification = async (req, res, next) => {
   try {
     const phoneE164 = normalizePhone(req.body?.phone);
@@ -92,15 +105,13 @@ export const requestCallVerification = async (req, res, next) => {
       return res.status(400).json({ error: 'Valid phone is required' });
     }
 
-    await getOrCreateMobileUser(phoneE164);
-
     return res.status(200).json({
       phoneE164,
       requestToken: createRequestToken(phoneE164),
       expiresAt: getRequestExpiry(),
       callNumberE164: process.env.MOBILE_CALL_NUMBER_E164 || defaultCallNumberE164,
       status: 'pending',
-      devCode: '0000'
+      devCode: null
     });
   } catch (err) {
     if (err.code === '23505') {
@@ -130,6 +141,10 @@ export const getCallVerificationStatus = async (req, res, next) => {
 
     if (!phoneE164) {
       return res.status(400).json({ error: 'Valid phone is required' });
+    }
+
+    if (!isAutoConfirmEnabled()) {
+      return res.status(200).json(getPendingResponse(phoneE164, expiresAt));
     }
 
     return res.status(200).json(await getVerifiedResponse(phoneE164, expiresAt));
