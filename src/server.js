@@ -19,9 +19,10 @@ app.use(helmet());
 app.use(compression());
 app.use(express.json({ limit: process.env.JSON_LIMIT || '1mb' }));
 app.use(express.urlencoded({ extended: true, limit: process.env.FORM_LIMIT || '1mb' }));
-app.use(cors({ origin: corsOrigin === '*' ? true : corsOrigin.split(',').map((origin) => origin.trim()) }));
+app.use(cors({ origin: corsOrigin === '*' ? true : corsOrigin.split(',').map((o) => o.trim()) }));
 app.use(morgan(env === 'production' ? 'combined' : 'dev'));
 
+// ✅ HEALTH
 app.get('/health', (_req, res) => {
   res.status(200).json({
     status: 'ok',
@@ -32,12 +33,12 @@ app.get('/health', (_req, res) => {
   });
 });
 
+// 404
 app.use((_req, res) => {
-  res.status(404).json({
-    error: 'Not Found'
-  });
+  res.status(404).json({ error: 'Not Found' });
 });
 
+// error handler
 app.use((err, _req, res, _next) => {
   console.error(err);
   res.status(err.status || 500).json({
@@ -45,21 +46,20 @@ app.use((err, _req, res, _next) => {
   });
 });
 
-const server = app.listen(port, '0.0.0.0', () => {
-  console.log(`${serviceName} listening on port ${port}`);
-});
+// 👇 ВАЖНО: экспорт app для тестов
+export default app;
 
-const shutdown = (signal) => {
-  console.log(`${signal} received, shutting down`);
-  server.close((err) => {
-    if (err) {
-      console.error(err);
-      process.exit(1);
-    }
-
-    process.exit(0);
+// 👇 запуск только если НЕ тест
+if (process.env.NODE_ENV !== 'test') {
+  const server = app.listen(port, '0.0.0.0', () => {
+    console.log(`${serviceName} listening on port ${port}`);
   });
-};
 
-process.on('SIGTERM', shutdown);
-process.on('SIGINT', shutdown);
+  const shutdown = (signal) => {
+    console.log(`${signal} received, shutting down`);
+    server.close(() => process.exit(0));
+  };
+
+  process.on('SIGTERM', shutdown);
+  process.on('SIGINT', shutdown);
+}
