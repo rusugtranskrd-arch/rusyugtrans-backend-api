@@ -38,8 +38,8 @@ app.get('/ready', async (_req, res, next) => {
   try {
     await query('SELECT 1');
     res.status(200).json({
-      status: 'ready',
-      database: 'ok',
+      status: 'ok',
+      database: 'connected',
       service: serviceName,
       environment: env,
       timestamp: new Date().toISOString()
