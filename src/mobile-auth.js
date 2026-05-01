@@ -6,6 +6,7 @@ import { query } from './db.js';
 const disabledPasswordHash = '$2b$10$w1pHFQuk0hMIAV5C4/04qO1z3t8Flc27.rSfN9ztxarEGgY9g2luS';
 const requestTokenExpiresInSeconds = 10 * 60;
 const mobileUserFields = 'id, name, email, phone_e164, created_at, updated_at';
+const defaultCallNumberE164 = '+74995503212';
 
 const normalizePhone = (value) => {
   const raw = typeof value === 'string' ? value.trim() : '';
@@ -97,7 +98,7 @@ export const requestCallVerification = async (req, res, next) => {
       phoneE164,
       requestToken: createRequestToken(phoneE164),
       expiresAt: getRequestExpiry(),
-      callNumberE164: '+70000000000',
+      callNumberE164: process.env.MOBILE_CALL_NUMBER_E164 || defaultCallNumberE164,
       status: 'pending',
       devCode: '0000'
     });

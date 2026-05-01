@@ -39,7 +39,7 @@ describe('Mobile auth API', () => {
       phoneE164: '+79991234567',
       requestToken: expect.any(String),
       expiresAt: expect.any(String),
-      callNumberE164: '+70000000000',
+      callNumberE164: '+74995503212',
       status: 'pending',
       devCode: '0000'
     });
