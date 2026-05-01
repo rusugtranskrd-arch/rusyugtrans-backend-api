@@ -5,7 +5,7 @@ import express from 'express';
 import helmet from 'helmet';
 import morgan from 'morgan';
 
-import { testConnection } from './db.js'; // ✅ добавили
+import { closePool, query, testConnection } from './db.js';
 
 const app = express();
 
@@ -24,7 +24,6 @@ app.use(express.urlencoded({ extended: true, limit: process.env.FORM_LIMIT || '1
 app.use(cors({ origin: corsOrigin === '*' ? true : corsOrigin.split(',').map((o) => o.trim()) }));
 app.use(morgan(env === 'production' ? 'combined' : 'dev'));
 
-// ✅ HEALTH
 app.get('/health', (_req, res) => {
   res.status(200).json({
     status: 'ok',
@@ -35,12 +34,25 @@ app.get('/health', (_req, res) => {
   });
 });
 
-// 404
+app.get('/ready', async (_req, res, next) => {
+  try {
+    await query('SELECT 1');
+    res.status(200).json({
+      status: 'ready',
+      database: 'ok',
+      service: serviceName,
+      environment: env,
+      timestamp: new Date().toISOString()
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 app.use((_req, res) => {
   res.status(404).json({ error: 'Not Found' });
 });
 
-// error handler
 app.use((err, _req, res, _next) => {
   console.error(err);
   res.status(err.status || 500).json({
@@ -48,25 +60,30 @@ app.use((err, _req, res, _next) => {
   });
 });
 
-// 👇 экспорт для тестов
 export default app;
 
-// 👇 запуск только если НЕ тест
 if (process.env.NODE_ENV !== 'test') {
   (async () => {
-    // ✅ подключение к БД
-    await testConnection();
+    try {
+      await testConnection();
 
-    const server = app.listen(port, '0.0.0.0', () => {
-      console.log(`${serviceName} listening on port ${port}`);
-    });
+      const server = app.listen(port, '0.0.0.0', () => {
+        console.log(`${serviceName} listening on port ${port}`);
+      });
 
-    const shutdown = (signal) => {
-      console.log(`${signal} received, shutting down`);
-      server.close(() => process.exit(0));
-    };
+      const shutdown = (signal) => {
+        console.log(`${signal} received, shutting down`);
+        server.close(async () => {
+          await closePool();
+          process.exit(0);
+        });
+      };
 
-    process.on('SIGTERM', shutdown);
-    process.on('SIGINT', shutdown);
+      process.on('SIGTERM', shutdown);
+      process.on('SIGINT', shutdown);
+    } catch (err) {
+      console.error('PostgreSQL connection error:', err.message);
+      process.exit(1);
+    }
   })();
 }

@@ -24,6 +24,9 @@ jobs:
       - name: Check syntax
         run: npm run lint
 
+      - name: Run tests
+        run: npm test
+
       - name: Deploy to server
         uses: appleboy/ssh-action@v1.0.0
         with:

@@ -1,155 +1,125 @@
-# Deploy to Ubuntu 22.04
+# Production Deployment
 
-Target server: `89.169.142.232`  
-Domain: `api.rusyugtrans.online`
-
-## 1. DNS
-
-Create an `A` record:
+Target server:
 
 ```text
-api.rusyugtrans.online -> 89.169.142.232
+yc-user@103.76.55.173
 ```
 
-Wait until DNS resolves:
+Project path:
 
-```bash
-dig +short api.rusyugtrans.online
+```text
+/home/yc-user/backend-api
 ```
 
-## 2. Install server packages
+Domain:
 
-```bash
-sudo apt update
-sudo apt install -y ca-certificates curl gnupg nginx ufw certbot python3-certbot-nginx
-sudo install -m 0755 -d /etc/apt/keyrings
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-sudo chmod a+r /etc/apt/keyrings/docker.gpg
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-sudo apt update
-sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+```text
+api.rusyugtrans.online
 ```
 
-## 3. Firewall
+## GitHub Actions
 
-```bash
-sudo ufw allow OpenSSH
-sudo ufw allow 'Nginx Full'
-sudo ufw --force enable
-sudo ufw status
+Every push to `main` runs:
+
+```text
+npm ci
+npm run lint
+npm test
+SSH deploy
 ```
 
-## 4. Upload project
+The SSH deploy step connects to the server and runs:
 
 ```bash
-sudo mkdir -p /opt/rusyugtrans-api
-sudo chown -R "$USER":"$USER" /opt/rusyugtrans-api
+cd /home/yc-user/backend-api
+./deploy.sh
 ```
 
-Upload the contents of this `backend-api` directory to `/opt/rusyugtrans-api`.
+Required GitHub secret:
 
-Create production env:
+```text
+SSH_KEY
+```
+
+`SSH_KEY` must contain the private key authorized for `yc-user` on `103.76.55.173`.
+
+## Server Files
+
+The production `.env` file must exist on the server and must not be committed:
 
 ```bash
-cd /opt/rusyugtrans-api
+cd /home/yc-user/backend-api
 cp .env.example .env
 nano .env
 ```
 
-Recommended values:
+Minimum values:
 
 ```text
 NODE_ENV=production
 PORT=3000
 SERVICE_NAME=rusyugtrans-api
-CORS_ORIGIN=https://api.rusyugtrans.online
+CORS_ORIGIN=*
 JSON_LIMIT=1mb
 FORM_LIMIT=1mb
+POSTGRES_DB=rusyugtrans
+POSTGRES_USER=rusyugtrans
+POSTGRES_PASSWORD=change_me_strong_password
+DATABASE_URL=postgresql://rusyugtrans:change_me_strong_password@postgres:5432/rusyugtrans
 ```
 
-## 5. Start API
+Use a strong production password and keep `DATABASE_URL` in sync with the PostgreSQL variables.
+
+## Manual Deploy
 
 ```bash
-cd /opt/rusyugtrans-api
-docker compose up -d --build
-docker compose ps
+ssh yc-user@103.76.55.173
+cd /home/yc-user/backend-api
+chmod +x deploy.sh monitor.sh
+./deploy.sh
+```
+
+`deploy.sh` saves the current commit, pulls `origin/main`, rebuilds containers, checks `http://127.0.0.1:3000/health`, and rolls back to the previous commit if the health check fails.
+
+## Operations
+
+```bash
+cd /home/yc-user/backend-api
+docker-compose ps
+docker logs --tail=50 rusyugtrans-api
+docker logs --tail=50 rusyugtrans-postgres
 curl http://127.0.0.1:3000/health
-```
-
-## 6. Configure Nginx
-
-Create `/etc/nginx/sites-available/api.rusyugtrans.online`:
-
-```nginx
-server {
-    listen 80;
-    server_name api.rusyugtrans.online;
-
-    location / {
-        proxy_pass http://127.0.0.1:3000;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-}
-```
-
-Enable site:
-
-```bash
-sudo ln -s /etc/nginx/sites-available/api.rusyugtrans.online /etc/nginx/sites-enabled/api.rusyugtrans.online
-sudo nginx -t
-sudo systemctl reload nginx
-```
-
-## 7. Enable HTTPS
-
-```bash
-sudo certbot --nginx -d api.rusyugtrans.online
-sudo systemctl status certbot.timer
-```
-
-Check from outside:
-
-```bash
+curl http://127.0.0.1:3000/ready
 curl https://api.rusyugtrans.online/health
 ```
 
-Expected response:
+## Monitoring
 
-```json
-{
-  "status": "ok",
-  "service": "rusyugtrans-api",
-  "environment": "production"
-}
+Run `monitor.sh` every minute from cron:
+
+```cron
+* * * * * /home/yc-user/backend-api/monitor.sh
 ```
 
-## 8. Operations
+The script writes to:
 
-Update and restart:
-
-```bash
-cd /opt/rusyugtrans-api
-docker compose up -d --build
+```text
+~/monitor.log
 ```
 
-View logs:
+It checks `http://127.0.0.1:3000/health` and restarts `rusyugtrans-api` if the check fails.
 
-```bash
-docker compose logs -f api
+## Nginx
+
+The API container publishes only to localhost:
+
+```text
+127.0.0.1:3000:3000
 ```
 
-Stop:
+Nginx should proxy HTTPS traffic for `api.rusyugtrans.online` to:
 
-```bash
-docker compose down
-```
-
-Restart:
-
-```bash
-docker compose restart api
+```text
+http://127.0.0.1:3000
 ```
