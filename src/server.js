@@ -26,6 +26,14 @@ app.use(express.urlencoded({ extended: true, limit: process.env.FORM_LIMIT || '1
 app.use(cors({ origin: corsOrigin === '*' ? true : corsOrigin.split(',').map((o) => o.trim()) }));
 app.use(morgan(env === 'production' ? 'combined' : 'dev'));
 
+app.get('/', (_req, res) => {
+  res.status(200).json({
+    service: serviceName,
+    status: 'ok',
+    docs: ['/health', '/ready', '/users']
+  });
+});
+
 app.get('/health', (_req, res) => {
   res.status(200).json({
     status: 'ok',
