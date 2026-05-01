@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import request from 'supertest';
+import jwt from 'jsonwebtoken';
 
 const queryMock = vi.fn();
+process.env.JWT_SECRET = 'test_secret';
 
 vi.mock('../src/db.js', () => ({
   closePool: vi.fn(),
@@ -10,6 +12,8 @@ vi.mock('../src/db.js', () => ({
 }));
 
 const { default: app } = await import('../src/server.js');
+
+const authHeader = () => `Bearer ${jwt.sign({ sub: '1', email: 'test@example.com' }, process.env.JWT_SECRET)}`;
 
 describe('Users API', () => {
   beforeEach(() => {
@@ -29,11 +33,37 @@ describe('Users API', () => {
 
     queryMock.mockResolvedValueOnce({ rows: users });
 
-    const res = await request(app).get('/users');
+    const res = await request(app).get('/users').set('Authorization', authHeader());
 
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ users });
     expect(queryMock).toHaveBeenCalledWith(expect.stringContaining('FROM users'));
+  });
+
+  it('GET /users requires a token', async () => {
+    const res = await request(app).get('/users');
+
+    expect(res.status).toBe(401);
+    expect(res.body).toEqual({ error: 'Authentication token is required' });
+    expect(queryMock).not.toHaveBeenCalled();
+  });
+
+  it('GET /me returns the authenticated user', async () => {
+    const user = {
+      id: '1',
+      name: 'Test User',
+      email: 'test@example.com',
+      created_at: '2026-05-01T14:00:00.000Z',
+      updated_at: '2026-05-01T14:00:00.000Z'
+    };
+
+    queryMock.mockResolvedValueOnce({ rows: [user] });
+
+    const res = await request(app).get('/me').set('Authorization', authHeader());
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ user });
+    expect(queryMock).toHaveBeenCalledWith(expect.stringContaining('WHERE id = $1'), ['1']);
   });
 
   it('POST /users creates a user', async () => {
@@ -55,7 +85,8 @@ describe('Users API', () => {
     expect(res.body).toEqual({ user });
     expect(queryMock).toHaveBeenCalledWith(expect.stringContaining('INSERT INTO users'), [
       'Jane Doe',
-      'jane@example.com'
+      'jane@example.com',
+      expect.any(String)
     ]);
   });
 

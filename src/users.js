@@ -1,5 +1,7 @@
 import { query } from './db.js';
 
+const disabledPasswordHash = '$2b$10$w1pHFQuk0hMIAV5C4/04qO1z3t8Flc27.rSfN9ztxarEGgY9g2luS';
+
 const normalizeUserInput = (body) => ({
   name: typeof body.name === 'string' ? body.name.trim() : '',
   email: typeof body.email === 'string' ? body.email.trim().toLowerCase() : ''
@@ -34,10 +36,10 @@ export const createUser = async (req, res, next) => {
     }
 
     const result = await query(
-      `INSERT INTO users (name, email)
-       VALUES ($1, $2)
+      `INSERT INTO users (name, email, password_hash)
+       VALUES ($1, $2, $3)
        RETURNING id, name, email, created_at, updated_at`,
-      [name, email]
+      [name, email, disabledPasswordHash]
     );
 
     return res.status(201).json({ user: result.rows[0] });
@@ -46,6 +48,26 @@ export const createUser = async (req, res, next) => {
       return res.status(409).json({ error: 'User with this email already exists' });
     }
 
+    return next(err);
+  }
+};
+
+export const getCurrentUser = async (req, res, next) => {
+  try {
+    const result = await query(
+      `SELECT id, name, email, created_at, updated_at
+       FROM users
+       WHERE id = $1`,
+      [req.user.id]
+    );
+
+    const user = result.rows[0];
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    return res.status(200).json({ user });
+  } catch (err) {
     return next(err);
   }
 };

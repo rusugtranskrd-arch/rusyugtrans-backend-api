@@ -7,22 +7,26 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
-    "lint": "node --check src/server.js && node --check src/db.js && node --check src/schema.js && node --check src/users.js",
+    "lint": "node --check src/server.js && node --check src/db.js && node --check src/schema.js && node --check src/users.js && node --check src/auth.js",
     "test": "vitest run"
   },
   "engines": {
     "node": ">=20"
   },
   "dependencies": {
+    "bcryptjs": "^3.0.3",
     "compression": "^1.7.4",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
+    "express-rate-limit": "^8.4.1",
     "helmet": "^8.0.0",
+    "jsonwebtoken": "^9.0.3",
     "morgan": "^1.10.0",
     "pg": "^8.20.0"
   },
   "devDependencies": {
+    "@types/jsonwebtoken": "^9.0.10",
     "nodemon": "^3.1.9",
     "supertest": "^7.2.2",
     "vitest": "^4.1.5"

@@ -2,12 +2,14 @@ import compression from 'compression';
 import cors from 'cors';
 import 'dotenv/config';
 import express from 'express';
+import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
 import morgan from 'morgan';
 
+import { authMiddleware, login, register } from './auth.js';
 import { closePool, query, testConnection } from './db.js';
 import { initializeSchema } from './schema.js';
-import { createUser, listUsers } from './users.js';
+import { createUser, getCurrentUser, listUsers } from './users.js';
 
 const app = express();
 
@@ -25,6 +27,13 @@ app.use(express.json({ limit: process.env.JSON_LIMIT || '1mb' }));
 app.use(express.urlencoded({ extended: true, limit: process.env.FORM_LIMIT || '1mb' }));
 app.use(cors({ origin: corsOrigin === '*' ? true : corsOrigin.split(',').map((o) => o.trim()) }));
 app.use(morgan(env === 'production' ? 'combined' : 'dev'));
+
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false
+});
 
 app.get('/', (_req, res) => {
   res.status(200).json({
@@ -59,7 +68,11 @@ app.get('/ready', async (_req, res, next) => {
   }
 });
 
-app.get('/users', listUsers);
+app.post('/auth/register', register);
+app.post('/auth/login', loginLimiter, login);
+
+app.get('/me', authMiddleware, getCurrentUser);
+app.get('/users', authMiddleware, listUsers);
 app.post('/users', createUser);
 
 app.use((_req, res) => {
