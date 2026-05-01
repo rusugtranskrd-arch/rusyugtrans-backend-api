@@ -5,6 +5,8 @@ import express from 'express';
 import helmet from 'helmet';
 import morgan from 'morgan';
 
+import { testConnection } from './db.js'; // ✅ добавили
+
 const app = express();
 
 const env = process.env.NODE_ENV || 'development';
@@ -46,20 +48,25 @@ app.use((err, _req, res, _next) => {
   });
 });
 
-// 👇 ВАЖНО: экспорт app для тестов
+// 👇 экспорт для тестов
 export default app;
 
 // 👇 запуск только если НЕ тест
 if (process.env.NODE_ENV !== 'test') {
-  const server = app.listen(port, '0.0.0.0', () => {
-    console.log(`${serviceName} listening on port ${port}`);
-  });
+  (async () => {
+    // ✅ подключение к БД
+    await testConnection();
 
-  const shutdown = (signal) => {
-    console.log(`${signal} received, shutting down`);
-    server.close(() => process.exit(0));
-  };
+    const server = app.listen(port, '0.0.0.0', () => {
+      console.log(`${serviceName} listening on port ${port}`);
+    });
 
-  process.on('SIGTERM', shutdown);
-  process.on('SIGINT', shutdown);
+    const shutdown = (signal) => {
+      console.log(`${signal} received, shutting down`);
+      server.close(() => process.exit(0));
+    };
+
+    process.on('SIGTERM', shutdown);
+    process.on('SIGINT', shutdown);
+  })();
 }
