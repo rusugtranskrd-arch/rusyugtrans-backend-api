@@ -6,6 +6,8 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 
 import { closePool, query, testConnection } from './db.js';
+import { initializeSchema } from './schema.js';
+import { createUser, listUsers } from './users.js';
 
 const app = express();
 
@@ -49,6 +51,9 @@ app.get('/ready', async (_req, res, next) => {
   }
 });
 
+app.get('/users', listUsers);
+app.post('/users', createUser);
+
 app.use((_req, res) => {
   res.status(404).json({ error: 'Not Found' });
 });
@@ -66,6 +71,7 @@ if (process.env.NODE_ENV !== 'test') {
   (async () => {
     try {
       await testConnection();
+      await initializeSchema();
 
       const server = app.listen(port, '0.0.0.0', () => {
         console.log(`${serviceName} listening on port ${port}`);
