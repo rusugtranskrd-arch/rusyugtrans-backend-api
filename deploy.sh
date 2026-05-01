@@ -20,6 +20,13 @@ else
   compose=(docker-compose)
 fi
 
+# docker-compose v1 is still installed on the production host and is not fully
+# compatible with newer Docker image metadata when recreating containers.
+api_containers="$(docker ps -aq --filter label=com.docker.compose.service=api)"
+if [ -n "$api_containers" ]; then
+  docker rm -f $api_containers
+fi
+
 "${compose[@]}" up -d --build
 
 for attempt in {1..30}; do
@@ -34,6 +41,10 @@ done
 
 echo "Health check failed, rolling back to $previous_commit"
 git reset --hard "$previous_commit"
+api_containers="$(docker ps -aq --filter label=com.docker.compose.service=api)"
+if [ -n "$api_containers" ]; then
+  docker rm -f $api_containers
+fi
 "${compose[@]}" up -d --build
 
 for attempt in {1..30}; do
