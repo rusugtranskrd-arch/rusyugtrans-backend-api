@@ -2,37 +2,20 @@ name: Deploy
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Check syntax
-        run: npm run lint
-
-      - name: Run tests
-        run: npm test
-
-      - name: Deploy to server
+      - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.0.0
         with:
-          host: 103.76.55.173
-          username: yc-user
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
           script: |
             cd /home/yc-user/backend-api
+            git pull origin main
             ./deploy.sh
