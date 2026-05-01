@@ -114,9 +114,10 @@ export const login = async (req, res, next) => {
 
 export const authMiddleware = (req, res, next) => {
   const header = req.get('authorization') || '';
-  const [scheme, token] = header.split(' ');
+  const [scheme, bearerToken] = header.split(' ');
+  const token = scheme === 'Bearer' ? bearerToken : req.get('x-auth-token');
 
-  if (scheme !== 'Bearer' || !token) {
+  if (!token) {
     return res.status(401).json({ error: 'Authentication token is required' });
   }
 

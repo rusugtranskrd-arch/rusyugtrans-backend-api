@@ -8,6 +8,7 @@ import morgan from 'morgan';
 
 import { authMiddleware, login, register } from './auth.js';
 import { closePool, query, testConnection } from './db.js';
+import { getCallVerificationStatus, requestCallVerification } from './mobile-auth.js';
 import { initializeSchema } from './schema.js';
 import { createUser, getCurrentUser, listUsers } from './users.js';
 
@@ -39,7 +40,16 @@ app.get('/', (_req, res) => {
   res.status(200).json({
     service: serviceName,
     status: 'ok',
-    docs: ['/health', '/ready', '/users', '/api/mobile/auth/me', '/api/mobile/profile', '/api/mobile/map/points']
+    docs: [
+      '/health',
+      '/ready',
+      '/users',
+      '/api/mobile/auth/request-call',
+      '/api/mobile/auth/call-status',
+      '/api/mobile/auth/me',
+      '/api/mobile/profile',
+      '/api/mobile/map/points'
+    ]
   });
 });
 
@@ -76,6 +86,8 @@ app.get('/users', authMiddleware, listUsers);
 app.post('/users', createUser);
 
 app.get('/api/mobile/auth/me', authMiddleware, getCurrentUser);
+app.post('/api/mobile/auth/request-call', requestCallVerification);
+app.get('/api/mobile/auth/call-status', getCallVerificationStatus);
 app.get('/api/mobile/profile', authMiddleware, getCurrentUser);
 app.get('/api/mobile/map/points', (_req, res) => {
   res.status(200).json({ points: [] });

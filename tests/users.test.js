@@ -102,6 +102,25 @@ describe('Users API', () => {
     expect(queryMock).toHaveBeenCalledWith(expect.stringContaining('WHERE id = $1'), ['1']);
   });
 
+  it('GET /api/mobile/profile accepts X-Auth-Token for Android clients', async () => {
+    const user = {
+      id: '1',
+      name: 'Test User',
+      email: 'test@example.com',
+      created_at: '2026-05-01T14:00:00.000Z',
+      updated_at: '2026-05-01T14:00:00.000Z'
+    };
+
+    queryMock.mockResolvedValueOnce({ rows: [user] });
+
+    const token = jwt.sign({ sub: '1', email: 'test@example.com' }, process.env.JWT_SECRET);
+    const res = await request(app).get('/api/mobile/profile').set('X-Auth-Token', token);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ user });
+    expect(queryMock).toHaveBeenCalledWith(expect.stringContaining('WHERE id = $1'), ['1']);
+  });
+
   it('GET /api/mobile/auth/me requires a token', async () => {
     const res = await request(app).get('/api/mobile/auth/me');
 

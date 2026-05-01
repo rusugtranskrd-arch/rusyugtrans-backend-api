@@ -14,6 +14,8 @@ describe('Health endpoint', () => {
         '/health',
         '/ready',
         '/users',
+        '/api/mobile/auth/request-call',
+        '/api/mobile/auth/call-status',
         '/api/mobile/auth/me',
         '/api/mobile/profile',
         '/api/mobile/map/points'
