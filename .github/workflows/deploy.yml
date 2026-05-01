@@ -1,0 +1,21 @@
+name: Deploy
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy to server
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: 103.76.55.173
+          username: yc-user
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            cd /home/yc-user/backend-api
+            ./deploy.sh
