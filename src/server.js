@@ -39,7 +39,7 @@ app.get('/', (_req, res) => {
   res.status(200).json({
     service: serviceName,
     status: 'ok',
-    docs: ['/health', '/ready', '/users']
+    docs: ['/health', '/ready', '/users', '/api/mobile/auth/me', '/api/mobile/profile', '/api/mobile/map/points']
   });
 });
 
@@ -74,6 +74,12 @@ app.post('/auth/login', loginLimiter, login);
 app.get('/me', authMiddleware, getCurrentUser);
 app.get('/users', authMiddleware, listUsers);
 app.post('/users', createUser);
+
+app.get('/api/mobile/auth/me', authMiddleware, getCurrentUser);
+app.get('/api/mobile/profile', authMiddleware, getCurrentUser);
+app.get('/api/mobile/map/points', (_req, res) => {
+  res.status(200).json({ points: [] });
+});
 
 app.use((_req, res) => {
   res.status(404).json({ error: 'Not Found' });

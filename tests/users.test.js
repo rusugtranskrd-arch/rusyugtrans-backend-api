@@ -66,6 +66,50 @@ describe('Users API', () => {
     expect(queryMock).toHaveBeenCalledWith(expect.stringContaining('WHERE id = $1'), ['1']);
   });
 
+  it('GET /api/mobile/auth/me returns the authenticated user', async () => {
+    const user = {
+      id: '1',
+      name: 'Test User',
+      email: 'test@example.com',
+      created_at: '2026-05-01T14:00:00.000Z',
+      updated_at: '2026-05-01T14:00:00.000Z'
+    };
+
+    queryMock.mockResolvedValueOnce({ rows: [user] });
+
+    const res = await request(app).get('/api/mobile/auth/me').set('Authorization', authHeader());
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ user });
+    expect(queryMock).toHaveBeenCalledWith(expect.stringContaining('WHERE id = $1'), ['1']);
+  });
+
+  it('GET /api/mobile/profile returns the authenticated user', async () => {
+    const user = {
+      id: '1',
+      name: 'Test User',
+      email: 'test@example.com',
+      created_at: '2026-05-01T14:00:00.000Z',
+      updated_at: '2026-05-01T14:00:00.000Z'
+    };
+
+    queryMock.mockResolvedValueOnce({ rows: [user] });
+
+    const res = await request(app).get('/api/mobile/profile').set('Authorization', authHeader());
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ user });
+    expect(queryMock).toHaveBeenCalledWith(expect.stringContaining('WHERE id = $1'), ['1']);
+  });
+
+  it('GET /api/mobile/auth/me requires a token', async () => {
+    const res = await request(app).get('/api/mobile/auth/me');
+
+    expect(res.status).toBe(401);
+    expect(res.body).toEqual({ error: 'Authentication token is required' });
+    expect(queryMock).not.toHaveBeenCalled();
+  });
+
   it('POST /users creates a user', async () => {
     const user = {
       id: '1',
