@@ -26,6 +26,9 @@ api_containers="$(docker ps -aq --filter label=com.docker.compose.service=api)"
 if [ -n "$api_containers" ]; then
   docker rm -f $api_containers
 fi
+if docker ps -aq --filter name='^/rusyugtrans-api$' | grep -q .; then
+  docker rm -f rusyugtrans-api
+fi
 
 "${compose[@]}" up -d --build
 
@@ -44,6 +47,9 @@ git reset --hard "$previous_commit"
 api_containers="$(docker ps -aq --filter label=com.docker.compose.service=api)"
 if [ -n "$api_containers" ]; then
   docker rm -f $api_containers
+fi
+if docker ps -aq --filter name='^/rusyugtrans-api$' | grep -q .; then
+  docker rm -f rusyugtrans-api
 fi
 "${compose[@]}" up -d --build
 
